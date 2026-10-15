@@ -39,26 +39,45 @@
     } finally { clearTimeout(timer); }
   }
 
-  async function status(force = false) {
+  async function trialStatus(startTrial) {
+    const now = Date.now();
+    const { xpcTrial: saved } = await chrome.storage.local.get('xpcTrial');
+    const days = config.trialDays ?? 3;
+    if (!saved && !startTrial) return { active: false, reason: 'trial_not_started' };
+    const trial = saved || { startedAt: now, expiresAt: now + days * refreshAfter, lastSeenAt: now };
+    if (!Number.isFinite(trial.startedAt) || !Number.isFinite(trial.expiresAt)
+      || !Number.isFinite(trial.lastSeenAt) || days <= 0
+      || trial.expiresAt <= trial.startedAt || trial.expiresAt > trial.startedAt + days * refreshAfter
+      || now < trial.startedAt || now < trial.lastSeenAt - 60000) {
+      return { active: false, reason: 'trial_expired' };
+    }
+    await chrome.storage.local.set({ xpcTrial: { ...trial, lastSeenAt: Math.max(now, trial.lastSeenAt) } });
+    if (now >= trial.expiresAt) return { active: false, reason: 'trial_expired', expiresAt: trial.expiresAt };
+    return { active: true, mode: 'trial', expiresAt: trial.expiresAt };
+  }
+
+  async function status(force = false, startTrial = false) {
     if (!config.required) return { active: true, mode: 'development' };
     if (!config.apiBaseUrl) return { active: false, reason: 'not_configured' };
     const { xpcLicense: saved } = await chrome.storage.local.get('xpcLicense');
-    if (!saved?.code) return { active: false, reason: 'not_activated' };
+    if (!saved?.code) return trialStatus(startTrial);
     const now = Date.now();
     const age = now - (saved.checkedAt || 0);
     const expiredLocally = Number.isFinite(saved.expiresAt) && now >= saved.expiresAt;
-    if (!force && !expiredLocally && age >= 0 && age < refreshAfter) {
+    if (!force && !saved.rejectedReason && !expiredLocally && age >= 0 && age < refreshAfter) {
       return { active: true, mode: 'online', licenseId: saved.licenseId, expiresAt: saved.expiresAt ?? null };
     }
     try {
       const result = await callServer('/v1/verify', { code: saved.code, installationId: await installationId() });
-      await chrome.storage.local.set({ xpcLicense: { ...saved, licenseId: result.licenseId, checkedAt: Date.now(), expiresAt: result.expiresAt ?? null } });
+      await chrome.storage.local.set({ xpcLicense: { ...saved, licenseId: result.licenseId, checkedAt: Date.now(), expiresAt: result.expiresAt ?? null, rejectedReason: null } });
       return { active: true, mode: 'online', licenseId: result.licenseId, expiresAt: result.expiresAt ?? null };
     } catch (error) {
       if (error.status === 403 || error.status === 409) {
-        await chrome.storage.local.remove('xpcLicense');
+        // Preserve denial across cached checks and offline fallback.
+        await chrome.storage.local.set({ xpcLicense: { ...saved, rejectedReason: error.message } });
         return { active: false, reason: error.message };
       }
+      if (saved.rejectedReason) return { active: false, reason: saved.rejectedReason };
       if (expiredLocally) return { active: false, reason: 'expired' };
       if (age >= 0 && age < offlineGrace) {
         return { active: true, mode: 'offline_grace', licenseId: saved.licenseId, expiresAt: saved.expiresAt ?? null };
@@ -73,12 +92,12 @@
     if (!codePattern.test(code)) return { active: false, reason: 'invalid_input' };
     try {
       const result = await callServer('/v1/activate', { code, installationId: await installationId() });
-      await chrome.storage.local.set({ xpcLicense: { code, licenseId: result.licenseId, checkedAt: Date.now(), expiresAt: result.expiresAt ?? null } });
+      await chrome.storage.local.set({ xpcLicense: { code, licenseId: result.licenseId, checkedAt: Date.now(), expiresAt: result.expiresAt ?? null, rejectedReason: null } });
       return { active: true, mode: 'online', licenseId: result.licenseId, expiresAt: result.expiresAt ?? null };
     } catch (error) {
       return { active: false, reason: [403, 409].includes(error.status) ? error.message : 'server_unavailable' };
     }
   }
 
-  root.XPCLicenseClient = { status: force => serial(() => status(force)), activate: code => serial(() => activate(code)) };
+  root.XPCLicenseClient = { status: (force, startTrial) => serial(() => status(force, startTrial)), activate: code => serial(() => activate(code)) };
 })(globalThis);

@@ -62,7 +62,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ ok: false, error: "INVALID_TRANSLATION_INPUT" });
     return false;
   }
-  translateWithGoogle(text, destLang).then(
+  Promise.resolve().then(async () => {
+    if (globalThis.XPCLicenseConfig?.required && !(await XPCLicenseClient.status()).active) throw new Error('LICENSE_REQUIRED');
+    return translateWithGoogle(text, destLang);
+  }).then(
     payload => sendResponse({ ok: true, payload }),
     error => sendResponse({ ok: false, error: error.message || "GOOGLE_TRANSLATION_FAILED" })
   );

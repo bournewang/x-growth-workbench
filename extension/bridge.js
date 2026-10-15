@@ -29,5 +29,8 @@
       }).catch(() => {});
     } catch { /* Extension was reloaded; refresh X. */ }
   });
+  if (window === window.top) {
+    chrome.runtime.sendMessage({ type: 'license:status', startTrial: true }).catch(() => {});
+  }
   ready();
 })();

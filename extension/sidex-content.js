@@ -2,9 +2,24 @@
   "use strict";
 
   if (window.top !== window.self) return;
+  let access = { active: true };
   if (XPCLicenseConfig.required) {
-    const license = await chrome.runtime.sendMessage({ type: 'license:status' }).catch(() => null);
+    const license = await chrome.runtime.sendMessage({ type: 'license:status', startTrial: true }).catch(() => null);
     if (!license?.active) return;
+    access = license;
+  }
+
+  function hasAccess() {
+    return access.active && (!Number.isFinite(access.expiresAt) || Date.now() < access.expiresAt);
+  }
+  async function refreshAccess() {
+    if (!XPCLicenseConfig.required) return true;
+    access = await chrome.runtime.sendMessage({ type: 'license:status' }).catch(() => ({ active: false }));
+    if (!access?.active) {
+      access = { active: false };
+      closeDrawer();
+    }
+    return hasAccess();
   }
 
   const Core = globalThis.SidePeekCore;
@@ -113,7 +128,8 @@
   const nativeActionObservers = new Map();
   const nativeActionArticles = new Map();
 
-  function requestPage(type, payload, timeoutMs = 18000) {
+  async function requestPage(type, payload, timeoutMs = 18000) {
+    if (!(await refreshAccess())) throw new Error("试用或授权已结束，请点击扩展图标输入激活码。");
     const requestId = ++requestSequence;
     return new Promise((resolve, reject) => {
       const timer = window.setTimeout(() => {
@@ -3992,6 +4008,7 @@
   }
 
   async function checkDetailPageAutoOpen() {
+    if (!hasAccess()) return;
     if (state.isResizing) return;
     const currentUrl = location.href;
     if (currentUrl === lastCheckedUrl) return;
@@ -4087,6 +4104,7 @@
   }
 
   function openDrawerForTweet(tweetId, articleNode) {
+    if (!hasAccess()) return;
     userClosedTweetId = null;
     lastHandledDetailTweetId = tweetId;
 
@@ -4142,6 +4160,7 @@
    * 5. 主推文自身的正文内容（tweetText）或空白处 -> 拦截并原地呼出评论侧栏
    */
   function shouldSkipClick(target, article) {
+    if (!hasAccess()) return true;
     if (!target) return false;
 
     // 1. 基础交互控件：按钮、表单输入、音视频、操作栏（点赞/转推/回复/书签/菜单/全文展开等）
@@ -4362,6 +4381,17 @@
   window.addEventListener("popstate", checkDetailPageAutoOpen);
   window.addEventListener("hashchange", checkDetailPageAutoOpen);
   setInterval(checkDetailPageAutoOpen, 300);
+
+  if (XPCLicenseConfig.required) {
+    setInterval(() => { refreshAccess().catch(() => {}); }, 30000);
+    document.addEventListener('click', event => {
+      if (!hasAccess() && event.target.closest?.('#sidepeek-drawer-root, #sidepeek-user-hovercard')) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closeDrawer();
+      }
+    }, true);
+  }
 
   // Initial check on load
   checkDetailPageAutoOpen();

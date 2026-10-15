@@ -10,7 +10,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 (async () => {
   const code = execFileSync('security', ['find-generic-password', '-a', 'xiaopei0206@icloud.com',
     '-s', 'x-growth-owner-license', '-w'], { encoding: 'utf8' }).trim();
-  const directory = path.resolve(__dirname, '../dist/X涨粉工作台-0.8.1/extension');
+  const directory = path.resolve(__dirname, '../dist/X涨粉工作台-0.8.2/extension');
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'x-growth-license-browser-'));
   const context = await chromium.launchPersistentContext(profile, {
     channel: 'chromium', executablePath: process.env.CHROMIUM_EXECUTABLE,

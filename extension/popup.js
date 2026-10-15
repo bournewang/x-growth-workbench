@@ -4,6 +4,7 @@ let accountSignature = '';
 let formAccount = '', formDay = '';
 let followManualAccount = '', followManualDay = '';
 let activationNotice = '';
+let lastLicenseMode = '';
 function loadFollowManual(s) {
   followManualAccount = s.selected;
   followManualDay = XPCore.dayKey(Date.now());
@@ -71,26 +72,34 @@ setInterval(() => {
   chrome.storage.local.get('state').then(({ state }) => { if (state) render(state); }).catch(() => {});
 }, 2000);
 const licenseErrors = {
+  trial_not_started: '打开并刷新 X 页面，即可自动开始 3 天免费试用，无需激活码。',
+  trial_expired: '3 天免费试用已结束，请输入购买后的激活码继续使用。',
   invalid_input: '激活码格式不正确。', invalid_code: '激活码无效或已停用。',
   expired: '激活码已到期，请联系售后获取新码。',
   bound_elsewhere: '此激活码已绑定其他浏览器；换机请联系售后。',
   not_configured: '激活服务尚未配置。', server_unavailable: '暂时无法连接激活服务，请稍后重试。'
 };
-function showLicenseExpiry(expiresAt) {
+function showLicenseExpiry(expiresAt, mode) {
   const label = $('license-expiry');
   label.hidden = !Number.isFinite(expiresAt);
-  if (!label.hidden) label.textContent = `授权有效期至 ${new Date(expiresAt).toLocaleString()}`;
+  if (!label.hidden) label.textContent = `${mode === 'trial' ? '免费试用至' : '授权有效期至'} ${new Date(expiresAt).toLocaleString()}`;
 }
 async function initializeLicense() {
   try {
     const result = await chrome.runtime.sendMessage({ type: 'license:status' });
     if (!result?.active) {
+      $('workbench-main').classList.add('license-locked');
+      $('license-panel').hidden = false;
+      $('license-entry').open = result?.reason !== 'trial_not_started';
       $('license-feedback').textContent = licenseErrors[result?.reason] || '请输入购买后的激活码。';
       return;
     }
     $('workbench-main').classList.remove('license-locked');
-    $('license-panel').hidden = true;
-    showLicenseExpiry(result.expiresAt);
+    $('license-panel').hidden = result.mode !== 'trial';
+    if (result.mode === 'trial' && lastLicenseMode !== 'trial') $('license-entry').open = false;
+    lastLicenseMode = result.mode;
+    if (result.mode === 'trial') $('license-feedback').textContent = '免费试用中，无需激活码。也可以提前输入购买后的激活码。';
+    showLicenseExpiry(result.expiresAt, result.mode);
     request({ type: 'get' });
   } catch {
     $('license-feedback').textContent = '无法检查激活状态，请重新打开弹窗。';
@@ -116,6 +125,7 @@ $('license-form').addEventListener('submit', async event => {
   finally { button.disabled = false; }
 });
 initializeLicense();
+setInterval(initializeLicense, 30000);
 
 document.querySelector('#manual-panel summary').addEventListener('click', () => { if (!$('manual-panel').open && current) { loadManual(current); $('manual-feedback').textContent = ''; } });
 $('manual-form').addEventListener('submit', async event => {

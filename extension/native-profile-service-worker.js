@@ -43,7 +43,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   if (message.type === 'license:status' || message.type === 'license:activate') {
     if (message.type === 'license:activate' && !popup) return;
     const task = message.type === 'license:status'
-      ? XPCLicenseClient.status(message.force === true && popup)
+      ? XPCLicenseClient.status(message.force === true && popup, message.startTrial === true && page && sender.frameId === 0)
       : XPCLicenseClient.activate(message.code);
     task.then(result => {
       reply(result);
@@ -55,7 +55,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   }
   serial(async () => {
     if (XPCLicenseConfig.required && !(await XPCLicenseClient.status()).active) {
-      return { ok: false, error: '请先激活 X涨粉工作台。' };
+      return { ok: false, error: '试用或授权已结束，请输入有效激活码继续使用。' };
     }
     const s = await state();
     let notice = null;

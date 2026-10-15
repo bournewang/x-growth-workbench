@@ -25,7 +25,7 @@ test('activation stores one installation, sends no buyer email, and rejects revo
   context.globalThis = context;
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../extension/license-client.js'), 'utf8'), context);
   const client = context.XPCLicenseClient;
-  assert.equal((await client.status()).reason, 'not_activated');
+  assert.equal((await client.status()).reason, 'trial_not_started');
   const code = 'XGW-AAAA-AAAA-AAAA-AAAA-AAAA';
   assert.equal((await client.activate(code)).active, true);
   assert.equal(calls.length, 1);
@@ -40,7 +40,9 @@ test('activation stores one installation, sends no buyer email, and rejects revo
   assert.equal((await client.status()).active, false);
   mode = 'revoked';
   assert.equal((await client.status()).reason, 'invalid_code');
-  assert.equal(data.xpcLicense, undefined);
+  assert.equal(data.xpcLicense.code, code, 'revoked paid credentials must not reopen a trial');
+  mode = 'offline';
+  assert.equal((await client.status()).active, false, 'revocation must survive cached checks and network loss');
 });
 
 test('expired license cannot use the offline grace period or cached authorization', async () => {
@@ -76,4 +78,59 @@ test('expired license cannot use the offline grace period or cached authorizatio
   expiry = Date.now() + 2 * 86400e3;
   assert.equal((await client.status()).active, true, 'server may extend an expired local license');
   assert.equal(data.xpcLicense.expiresAt, expiry);
+});
+
+
+test('trial starts only on X use, survives restarts, expires without offline grace and accepts a paid code', async () => {
+  const data = {};
+  let now = 1800000000000;
+  let online = false;
+  const clock = class extends Date { static now() { return now; } };
+  const context = {
+    chrome: { storage: { local: {
+      async get(key) { return { [key]: data[key] }; },
+      async set(values) { Object.assign(data, values); },
+      async remove(key) { delete data[key]; }
+    } } }, crypto, AbortController, setTimeout, clearTimeout, Date: clock,
+    XPCLicenseConfig: { apiBaseUrl: 'https://license.example.com', required: true, trialDays: 3 },
+    fetch: async () => {
+      if (!online) throw new Error('offline');
+      return { ok: true, status: 200, json: async () => ({ ok: true, licenseId: 'paid', expiresAt: now + 30 * 86400e3 }) };
+    }
+  };
+  context.globalThis = context;
+  const source = fs.readFileSync(path.join(__dirname, '../extension/license-client.js'), 'utf8');
+  vm.runInNewContext(source, context);
+  let client = context.XPCLicenseClient;
+  assert.equal((await client.status()).reason, 'trial_not_started');
+  assert.equal(data.xpcTrial, undefined, 'opening popup or updating badge must not start trial');
+  const results = await Promise.all([client.status(false, true), client.status(false, true)]);
+  assert.ok(results.every(r => r.active && r.mode === 'trial'));
+  const expiresAt = results[0].expiresAt;
+  assert.equal(expiresAt, now + 3 * 86400e3);
+  now += 86400e3;
+  vm.runInNewContext(source, context);
+  client = context.XPCLicenseClient;
+  assert.equal((await client.status()).expiresAt, expiresAt, 'restart cannot renew trial');
+  assert.equal((await client.activate('bad')).reason, 'invalid_input');
+  assert.equal((await client.status()).mode, 'trial', 'bad code does not cancel trial');
+  now = expiresAt;
+  assert.equal((await client.status()).reason, 'trial_expired');
+  assert.equal((await client.status(false, true)).active, false, 'expired trial does not restart');
+  online = true;
+  assert.equal((await client.activate('XGW-AAAA-AAAA-AAAA-AAAA-AAAA')).mode, 'online');
+  assert.equal((await client.status()).active, true);
+});
+
+test('trial detects clock rollback and fails closed on corrupt saved timestamps', async () => {
+  const now = Date.now();
+  const data = { xpcTrial: { startedAt: now - 86400e3, expiresAt: now + 2 * 86400e3, lastSeenAt: now + 120000 } };
+  const context = { chrome: { storage: { local: {
+    async get(key) { return { [key]: data[key] }; }, async set(values) { Object.assign(data, values); }
+  } } }, crypto, Date, XPCLicenseConfig: { required: true, apiBaseUrl: 'https://license.example.com', trialDays: 3 } };
+  context.globalThis = context;
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../extension/license-client.js'), 'utf8'), context);
+  assert.equal((await context.XPCLicenseClient.status()).active, false);
+  data.xpcTrial.expiresAt = 'bad';
+  assert.equal((await context.XPCLicenseClient.status(false, true)).active, false);
 });
