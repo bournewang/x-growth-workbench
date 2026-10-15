@@ -1,0 +1,2558 @@
+/* ==========================================================================
+   SidePeek for X (Twitter) - Modern Side Drawer Styles
+   ========================================================================== */
+
+:root {
+  --sp-bg: #ffffff;
+  --sp-fg: #0f1419;
+  --sp-muted: #536471;
+  --sp-border: #eff3f4;
+  --sp-soft: #f7f9f9;
+  --sp-accent: #1d9bf0;
+  --sp-like: #f91880;
+  --sp-repost: #00ba7c;
+  --sp-shadow: -4px 0 24px rgba(15, 20, 25, 0.08);
+}
+
+.sidepeek-theme-dark {
+  --sp-bg: #000000;
+  --sp-fg: #e7e9ea;
+  --sp-muted: #71767b;
+  --sp-border: #2f3336;
+  --sp-soft: #16181c;
+  --sp-shadow: -4px 0 32px rgba(0, 0, 0, 0.6);
+}
+
+.sidepeek-theme-dim {
+  --sp-bg: #15202b;
+  --sp-fg: #f7f9f9;
+  --sp-muted: #8b98a5;
+  --sp-border: #38444d;
+  --sp-soft: #1e2732;
+  --sp-shadow: -4px 0 32px rgba(0, 0, 0, 0.4);
+}
+
+/* Middle Timeline Focal Tweet Highlight */
+article[data-testid="tweet"].sidepeek-focal-active {
+  box-shadow: inset 0 0 0 2px rgba(29, 155, 240, 0.45), 0 2px 12px rgba(29, 155, 240, 0.12) !important;
+  border-radius: 8px !important;
+  transition: box-shadow 0.25s ease !important;
+}
+
+/* ==========================================================================
+   Drawer Container
+   ========================================================================== */
+#sidepeek-drawer-root {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: 2147483640;
+  display: flex;
+  flex-direction: column;
+  background: var(--sp-bg);
+  color: var(--sp-fg);
+  border-left: 1px solid var(--sp-border);
+  border-right: 1px solid var(--sp-border);
+  box-shadow: var(--sp-shadow);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14.5px;
+  line-height: 1.4;
+  box-sizing: border-box;
+  transform: translateX(105%);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+#sidepeek-drawer-root.sidepeek-open {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Official menus and dialogs must remain above the docked comments. */
+body:has(#sidepeek-drawer-root.sidepeek-open) #layers {
+  position: relative;
+  z-index: 2147483647;
+}
+
+#sidepeek-drawer-root *,
+#sidepeek-drawer-root *::before,
+#sidepeek-drawer-root *::after {
+  box-sizing: border-box;
+}
+
+/* Resize Handles on Left & Right Edges */
+.sidepeek-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  cursor: col-resize;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidepeek-resize-handle-left {
+  left: 0;
+}
+
+.sidepeek-resize-handle-right {
+  right: 0;
+}
+
+.sidepeek-resize-grip {
+  width: 4px;
+  height: 38px;
+  border-radius: 2px;
+  background: var(--sp-accent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.sidepeek-resize-handle:hover .sidepeek-resize-grip,
+.sidepeek-resize-handle.dragging .sidepeek-resize-grip {
+  opacity: 0.9;
+  transform: scaleY(1.25);
+}
+
+/* 当评论过多启用上下拖动滑块时，隐藏右侧水平调宽把手，避免视觉混杂 */
+#sidepeek-drawer-root.sidepeek-has-scroll .sidepeek-resize-handle-right .sidepeek-resize-grip {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Header & Navigation
+   ========================================================================== */
+.sidepeek-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--sp-border);
+  background: var(--sp-bg);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.sidepeek-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sidepeek-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--sp-fg);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.sidepeek-back-btn:hover {
+  background: var(--sp-soft);
+}
+
+.sidepeek-back-btn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: currentColor;
+}
+
+.sidepeek-title {
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidepeek-count-badge {
+  font-size: 12px;
+  color: var(--sp-muted);
+  font-weight: 500;
+}
+
+.sidepeek-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sidepeek-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--sp-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidepeek-icon-btn:hover {
+  background: var(--sp-soft);
+  color: var(--sp-fg);
+}
+
+.sidepeek-icon-btn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: currentColor;
+}
+
+/* ==========================================================================
+   Comment Scrollable Stream & Custom Drag Scrollbar
+   ========================================================================== */
+.sidepeek-body-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidepeek-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 0;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+}
+
+/* 彻底隐藏原生滚动条，避免 Windows Fluent 默认滚动条和箭头长期占用空间 */
+.sidepeek-body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* 优雅精致的右侧上下拖拽快速滚动轨道与滑块 */
+.sidepeek-scroll-track {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  right: 1px;
+  width: 14px;
+  z-index: 1002;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 9999px;
+  transition: background 0.18s ease;
+  user-select: none;
+}
+
+.sidepeek-scroll-track:hover,
+.sidepeek-scroll-track.active {
+  background: rgba(128, 128, 128, 0.08);
+}
+
+.sidepeek-scroll-thumb {
+  position: absolute;
+  top: 0;
+  right: 3px;
+  width: 6px;
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  border-radius: 9999px;
+  background: rgba(140, 150, 160, 0.45);
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: width 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              right 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.18s ease,
+              box-shadow 0.18s ease,
+              opacity 0.18s ease;
+  box-sizing: border-box;
+}
+
+.sidepeek-theme-dark .sidepeek-scroll-thumb,
+.sidepeek-theme-dim .sidepeek-scroll-thumb {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 滚轮滚动时短暂高亮滑块，提供即时视觉反馈 */
+.sidepeek-scroll-thumb.scrolling {
+  opacity: 0.9;
+  background: var(--sp-accent);
+}
+
+/* 鼠标悬停及拖动激活状态：变宽为 10px，官方 Twitter 蓝发光，展示上下双箭头指示符 */
+.sidepeek-scroll-track:hover .sidepeek-scroll-thumb,
+.sidepeek-scroll-thumb:hover,
+.sidepeek-scroll-thumb.dragging {
+  width: 10px;
+  right: 2px;
+  background: var(--sp-accent);
+  box-shadow: 0 0 10px rgba(29, 155, 240, 0.5);
+}
+
+.sidepeek-scroll-thumb.dragging {
+  background: #1a8cd8;
+  box-shadow: 0 0 14px rgba(29, 155, 240, 0.75);
+}
+
+/* 上下双向拖拽箭头指示符 (↕) */
+.sidepeek-scroll-thumb-grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  opacity: 0;
+  transform: scale(0.65);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+
+.sidepeek-scroll-track:hover .sidepeek-scroll-thumb-grip,
+.sidepeek-scroll-thumb:hover .sidepeek-scroll-thumb-grip,
+.sidepeek-scroll-thumb.dragging .sidepeek-scroll-thumb-grip {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* 拖动过程中的悬浮滚动进度胶囊 (0% - 100%) */
+.sidepeek-scroll-badge {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(15, 20, 25, 0.88);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.sidepeek-scroll-thumb.dragging .sidepeek-scroll-badge {
+  opacity: 1;
+}
+
+/* ==========================================================================
+   Comment Item & Thread Line
+   ========================================================================== */
+.sidepeek-comment-item {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding: 10px 16px;
+  transition: background 0.15s ease;
+}
+
+.sidepeek-comment-item:hover {
+  background: rgba(128, 128, 128, 0.03);
+}
+
+.sidepeek-avatar-col {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.sidepeek-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--sp-soft);
+  z-index: 1;
+  display: block;
+}
+
+.sidepeek-avatar-link {
+  display: block;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  z-index: 1;
+  text-decoration: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.sidepeek-avatar-link:hover .sidepeek-avatar {
+  opacity: 0.85;
+}
+
+/* Thread line connecting to subsequent reply */
+.sidepeek-thread-line {
+  position: absolute;
+  top: 40px;
+  bottom: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  background: var(--sp-border);
+  z-index: 0;
+}
+
+/* Thread Group: 原生 1px 极简分割线 */
+.sidepeek-thread-group {
+  position: relative;
+  border-bottom: 1px solid var(--sp-border);
+}
+
+/* Child Comment: 纯净扁平，完全继承原生背景，仅靠细连接线关联 */
+.sidepeek-comment-item.sidepeek-child-comment {
+  padding-top: 2px;
+  padding-bottom: 10px;
+}
+
+.sidepeek-content-col {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sidepeek-author-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 2px;
+  line-height: 1.25;
+}
+
+.sidepeek-name {
+  font-weight: 700;
+  color: var(--sp-fg);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidepeek-name:hover {
+  text-decoration: underline;
+}
+
+.sidepeek-verified-badge {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 3px;
+  vertical-align: text-bottom;
+  flex-shrink: 0;
+}
+
+.sidepeek-verified-badge svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.sidepeek-handle {
+  color: var(--sp-muted);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.sidepeek-dot {
+  color: var(--sp-muted);
+  font-size: 12px;
+}
+
+.sidepeek-time {
+  color: var(--sp-muted);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.sidepeek-time:hover {
+  text-decoration: underline;
+}
+
+/* Reply-to tag: 极简纯文本，无底色，无符号 */
+.sidepeek-reply-to-tag {
+  font-size: 13px;
+  color: var(--sp-muted);
+  margin-bottom: 3px;
+}
+
+.sidepeek-reply-to-tag a {
+  color: var(--sp-accent);
+  text-decoration: none;
+}
+
+.sidepeek-reply-to-tag a:hover {
+  text-decoration: underline;
+}
+
+.sidepeek-text {
+  word-break: break-word;
+  white-space: pre-wrap;
+  color: var(--sp-fg);
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+
+.sidepeek-text a,
+.sidepeek-text-link {
+  color: var(--sp-accent);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.sidepeek-text a:hover,
+.sidepeek-text-link:hover {
+  text-decoration: underline;
+}
+
+.sidepeek-text-mention,
+.sidepeek-text-hashtag,
+.sidepeek-text-cashtag {
+  color: var(--sp-accent);
+}
+
+/* Media preview & Multi-image Grid */
+.sidepeek-media-box {
+  margin-top: 6px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--sp-border);
+  max-height: 280px;
+}
+
+.sidepeek-media-box video {
+  width: 100%;
+  height: auto;
+  max-height: 280px;
+  object-fit: cover;
+  display: block;
+}
+
+.sidepeek-media-grid {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--sp-border);
+  background: var(--sp-border);
+}
+
+.sidepeek-media-grid.grid-1 {
+  grid-template-columns: 1fr;
+  max-height: 380px;
+}
+
+.sidepeek-media-grid.grid-1 img {
+  width: 100%;
+  max-height: 380px;
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.02);
+  display: block;
+  cursor: zoom-in;
+}
+
+.sidepeek-media-grid.grid-2 {
+  grid-template-columns: 1fr 1fr;
+  height: 180px;
+}
+
+.sidepeek-media-grid.grid-2 img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  cursor: zoom-in;
+}
+
+.sidepeek-media-grid.grid-3 {
+  grid-template-columns: 1.2fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  height: 200px;
+}
+
+.sidepeek-media-grid.grid-3 .sidepeek-media-item:first-child {
+  grid-row: span 2;
+}
+
+.sidepeek-media-grid.grid-3 img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  cursor: zoom-in;
+}
+
+.sidepeek-media-grid.grid-4 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  height: 220px;
+}
+
+.sidepeek-media-grid.grid-4 img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  cursor: zoom-in;
+}
+
+.sidepeek-media-item {
+  position: relative;
+  overflow: hidden;
+  background: var(--sp-soft);
+}
+
+/* Lightbox overlay */
+#sidepeek-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+#sidepeek-lightbox.active {
+  display: flex;
+}
+
+.sidepeek-lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+
+.sidepeek-lightbox-content {
+  position: relative;
+  z-index: 1;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidepeek-lightbox-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  cursor: zoom-out;
+}
+
+.sidepeek-lightbox-close {
+  position: absolute;
+  top: -44px;
+  right: -8px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 0;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.sidepeek-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ==========================================================================
+   Drill-down & Secondary Reply Threads (展开/收起二级回复控件)
+   ========================================================================== */
+.sidepeek-drilldown-trigger {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 0;
+  margin: 2px 0 10px 64px;
+  border: 0;
+  background: transparent;
+  color: var(--sp-accent);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.sidepeek-drilldown-trigger:hover {
+  text-decoration: underline;
+}
+
+.sidepeek-expand-btn-row {
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 2px 16px 8px 16px;
+  gap: 12px;
+}
+
+.sidepeek-thread-line-col {
+  position: relative;
+  width: 36px;
+  min-height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidepeek-thread-line-col .sidepeek-thread-line {
+  position: absolute;
+  top: -12px;
+  bottom: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  background: var(--sp-border);
+}
+
+.sidepeek-thread-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--sp-border);
+  z-index: 1;
+}
+
+.sidepeek-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--sp-accent, #1d9bf0);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  transition: background 0.15s ease, opacity 0.15s ease;
+  line-height: 1.4;
+}
+
+.sidepeek-expand-btn:hover {
+  background: rgba(29, 155, 240, 0.1);
+  text-decoration: underline;
+}
+
+.sidepeek-expand-btn:disabled {
+  opacity: 0.75;
+  cursor: default;
+  text-decoration: none;
+}
+
+.sidepeek-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--sp-muted, #71767b);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.sidepeek-collapse-btn:hover {
+  color: var(--sp-text, #e7e9ea);
+  background: rgba(128, 128, 128, 0.1);
+}
+
+.sidepeek-thread-loader-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 16px 8px 16px;
+  gap: 12px;
+}
+
+.sidepeek-thread-loader-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--sp-muted, #71767b);
+}
+
+.sidepeek-thread-empty-tip {
+  font-size: 12.5px;
+  color: var(--sp-muted, #71767b);
+  padding: 2px 0;
+}
+
+.sidepeek-mini-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--sp-border, rgba(255, 255, 255, 0.2));
+  border-top-color: var(--sp-accent, #1d9bf0);
+  border-radius: 50%;
+  animation: sidepeek-spin 0.7s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   1:1 Action Bar (Reply, Repost, Like, Views, Bookmark, Share)
+   ========================================================================== */
+.sidepeek-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 400px;
+  margin-top: 4px;
+  color: var(--sp-muted);
+}
+
+.sidepeek-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 9999px;
+  transition: color 0.15s;
+}
+
+.sidepeek-action-btn-surface {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  transition: background 0.15s;
+}
+
+.sidepeek-action-btn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: currentColor;
+}
+
+/* Action hover & active states */
+.sidepeek-act-reply:hover {
+  color: var(--sp-accent);
+}
+.sidepeek-act-reply:hover .sidepeek-action-btn-surface {
+  background: rgba(29, 155, 240, 0.1);
+}
+
+.sidepeek-act-repost:hover {
+  color: var(--sp-repost);
+}
+.sidepeek-act-repost:hover .sidepeek-action-btn-surface {
+  background: rgba(0, 186, 124, 0.1);
+}
+.sidepeek-act-repost.active {
+  color: var(--sp-repost);
+}
+
+.sidepeek-act-like:hover {
+  color: var(--sp-like);
+}
+.sidepeek-act-like:hover .sidepeek-action-btn-surface {
+  background: rgba(249, 24, 128, 0.1);
+}
+.sidepeek-act-like.active {
+  color: var(--sp-like);
+}
+.sidepeek-act-like.active svg {
+  fill: var(--sp-like);
+}
+
+.sidepeek-act-views:hover {
+  color: var(--sp-accent);
+}
+.sidepeek-act-views:hover .sidepeek-action-btn-surface {
+  background: rgba(29, 155, 240, 0.1);
+}
+
+.sidepeek-act-bookmark:hover,
+.sidepeek-act-share:hover {
+  color: var(--sp-accent);
+}
+.sidepeek-act-bookmark:hover .sidepeek-action-btn-surface,
+.sidepeek-act-share:hover .sidepeek-action-btn-surface {
+  background: rgba(29, 155, 240, 0.1);
+}
+.sidepeek-act-bookmark.active {
+  color: var(--sp-accent);
+}
+
+/* ==========================================================================
+   Inline Accordion Composer (行内就地展开回复框)
+   ========================================================================== */
+.sidepeek-inline-composer {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, margin 0.2s ease;
+  margin-top: 0;
+}
+
+.sidepeek-inline-composer.expanded {
+  max-height: 320px;
+  opacity: 1;
+  margin-top: 10px;
+  margin-bottom: 8px;
+}
+
+.sidepeek-composer-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--sp-soft);
+  border: 1px solid var(--sp-border);
+  border-radius: 12px;
+}
+
+.sidepeek-composer-textarea {
+  width: 100%;
+  min-height: 58px;
+  max-height: 160px;
+  padding: 6px 8px;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--sp-fg);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  resize: none;
+}
+
+.sidepeek-composer-textarea::placeholder {
+  color: var(--sp-muted);
+}
+
+/* Image preview thumbnail */
+.sidepeek-pasted-preview {
+  position: relative;
+  display: inline-block;
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--sp-border);
+  margin-top: 4px;
+}
+
+.sidepeek-pasted-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sidepeek-remove-img-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+  border: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.sidepeek-preview-loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.sidepeek-composer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--sp-border);
+  padding-top: 8px;
+}
+
+.sidepeek-composer-hint {
+  font-size: 11.5px;
+  color: var(--sp-muted);
+}
+
+.sidepeek-composer-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidepeek-btn-cancel {
+  background: transparent;
+  border: 0;
+  color: var(--sp-muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 9999px;
+}
+
+.sidepeek-btn-cancel:hover {
+  background: rgba(128, 128, 128, 0.1);
+}
+
+.sidepeek-btn-submit {
+  background: var(--sp-accent);
+  color: #ffffff;
+  border: 0;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 9999px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.sidepeek-btn-submit:hover {
+  opacity: 0.9;
+}
+
+.sidepeek-btn-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Loading & Empty States
+   ========================================================================== */
+.sidepeek-loading-box,
+.sidepeek-empty-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  color: var(--sp-muted);
+  text-align: center;
+  gap: 10px;
+}
+
+.sidepeek-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--sp-border);
+  border-top-color: var(--sp-accent);
+  border-radius: 50%;
+  animation: sidepeek-spin 0.7s linear infinite;
+}
+
+@keyframes sidepeek-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   Bottom Footer Composer (Reply to Focal / Main Post)
+   ========================================================================== */
+.sidepeek-footer-composer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--sp-border);
+  background: var(--sp-bg);
+  padding: 10px 14px;
+  position: relative;
+  z-index: 10;
+}
+
+.sidepeek-footer-native-mode {
+  padding: 12px 14px 14px;
+}
+
+.sidepeek-native-mode-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+}
+
+.sidepeek-native-reply-big-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--sp-accent);
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  box-shadow: 0 2px 8px rgba(29, 155, 240, 0.25);
+}
+
+.sidepeek-native-reply-big-btn:hover {
+  background: var(--sp-accent-hover);
+  box-shadow: 0 4px 12px rgba(29, 155, 240, 0.35);
+}
+
+.sidepeek-native-reply-big-btn:active {
+  transform: scale(0.98);
+}
+
+.sidepeek-native-reply-big-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.sidepeek-native-mode-hint {
+  font-size: 11px;
+  color: var(--sp-text-muted);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.sidepeek-switch-mode-link {
+  color: var(--sp-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.sidepeek-switch-mode-link:hover {
+  text-decoration: underline;
+}
+
+.sidepeek-footer-inner {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.sidepeek-footer-avatar-wrap {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-top: 2px;
+}
+
+.sidepeek-footer-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.sidepeek-footer-avatar-default {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--sp-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sp-muted);
+}
+
+.sidepeek-footer-avatar-default svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.sidepeek-footer-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidepeek-footer-reply-target {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: rgba(29, 155, 240, 0.1);
+  border: 1px solid rgba(29, 155, 240, 0.2);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--sp-accent);
+  animation: sidepeek-fade-in-down 0.2s ease;
+}
+
+.sidepeek-reply-target-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.sidepeek-cancel-reply-target {
+  border: none;
+  background: transparent;
+  color: var(--sp-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.sidepeek-cancel-reply-target:hover {
+  color: var(--sp-fg);
+}
+
+.sidepeek-footer-textarea {
+  width: 100%;
+  min-height: 36px;
+  max-height: 120px;
+  padding: 8px 12px;
+  border: 1px solid var(--sp-border);
+  border-radius: 18px;
+  background: var(--sp-soft);
+  color: var(--sp-fg);
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.4;
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s, border-radius 0.15s;
+}
+
+.sidepeek-footer-textarea:focus {
+  border-color: var(--sp-accent);
+  background: var(--sp-bg);
+  border-radius: 12px;
+}
+
+.sidepeek-footer-preview-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sidepeek-footer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 4px;
+}
+
+.sidepeek-footer-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sidepeek-tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--sp-accent);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.sidepeek-tool-btn:hover {
+  background: rgba(29, 155, 240, 0.12);
+}
+
+.sidepeek-tool-btn.active {
+  background: rgba(29, 155, 240, 0.18);
+  color: var(--sp-accent);
+}
+
+.sidepeek-tool-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* Character Ring & Actions */
+.sidepeek-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidepeek-char-counter {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: opacity 0.2s ease;
+}
+
+.sidepeek-char-ring {
+  transform: rotate(-90deg);
+  display: block;
+}
+
+.sidepeek-char-ring-bg {
+  fill: none;
+  stroke: var(--sp-border);
+  stroke-width: 2.2;
+}
+
+.sidepeek-char-ring-progress {
+  fill: none;
+  stroke: var(--sp-accent);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.15s ease, stroke 0.2s ease;
+}
+
+.sidepeek-char-warn-num {
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  min-width: 14px;
+  text-align: center;
+}
+
+.sidepeek-char-warn-num.warn-amber {
+  color: #ffd400;
+}
+
+.sidepeek-char-warn-num.warn-red {
+  color: #f4212e;
+}
+
+.sidepeek-char-warn-num.warn-note {
+  color: var(--sp-accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@keyframes sp-pulse-btn {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(29, 155, 240, 0.6); }
+  50% { transform: scale(1.18); box-shadow: 0 0 0 6px rgba(29, 155, 240, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(29, 155, 240, 0); }
+}
+
+.sidepeek-tool-btn-highlight {
+  animation: sp-pulse-btn 0.8s ease 3;
+  color: var(--sp-accent) !important;
+}
+
+.sidepeek-action-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--sp-border);
+  margin: 0 2px;
+}
+
+.sidepeek-footer-submit-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--sp-accent);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.sidepeek-footer-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sidepeek-footer-submit-btn:not(:disabled):hover {
+  opacity: 0.9;
+}
+
+/* ==========================================================================
+   In-place Popovers (Emoji, GIF, Poll, Schedule)
+   ========================================================================== */
+.sidepeek-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 10px;
+  right: 10px;
+  background: var(--sp-bg);
+  border: 1px solid var(--sp-border);
+  border-radius: 16px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
+  z-index: 1000;
+  overflow: hidden;
+  animation: sidepeek-popover-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes sidepeek-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sidepeek-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--sp-border);
+  gap: 8px;
+}
+
+.sidepeek-popover-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--sp-fg);
+}
+
+.sidepeek-popover-close {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--sp-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidepeek-popover-close:hover {
+  background: var(--sp-soft);
+  color: var(--sp-fg);
+}
+
+.sidepeek-popover-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sidepeek-popover-tab {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--sp-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidepeek-popover-tab:hover {
+  background: var(--sp-soft);
+  color: var(--sp-fg);
+}
+
+.sidepeek-popover-tab.active {
+  background: rgba(29, 155, 240, 0.12);
+  color: var(--sp-accent);
+  font-weight: 700;
+}
+
+/* Emoji Grid */
+.sidepeek-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  padding: 10px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.sidepeek-emoji-item {
+  width: 100%;
+  height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, transform 0.12s;
+}
+
+.sidepeek-emoji-item:hover {
+  background: var(--sp-soft);
+  transform: scale(1.18);
+}
+
+/* GIF Popover */
+.sidepeek-gif-search-input {
+  flex: 1;
+  border: 1px solid var(--sp-border);
+  border-radius: 14px;
+  background: var(--sp-soft);
+  color: var(--sp-fg);
+  font-size: 12.5px;
+  padding: 4px 10px;
+  outline: none;
+}
+
+.sidepeek-gif-search-input:focus {
+  border-color: var(--sp-accent);
+}
+
+.sidepeek-gif-tags {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--sp-border);
+}
+
+.sidepeek-gif-tags::-webkit-scrollbar {
+  display: none;
+}
+
+.sidepeek-gif-tag {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--sp-soft);
+  color: var(--sp-fg);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidepeek-gif-tag:hover {
+  background: rgba(29, 155, 240, 0.12);
+  color: var(--sp-accent);
+}
+
+.sidepeek-gif-tag.active {
+  background: var(--sp-accent);
+  color: #fff;
+}
+
+.sidepeek-gif-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  padding: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.sidepeek-gif-item {
+  position: relative;
+  height: 100px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--sp-soft);
+  border: 1px solid var(--sp-border);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.sidepeek-gif-item:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.sidepeek-gif-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sidepeek-gif-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 3px 6px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.sidepeek-gif-badge {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.sidepeek-popover-empty {
+  grid-column: span 2;
+  text-align: center;
+  padding: 24px 0;
+  font-size: 12.5px;
+  color: var(--sp-muted);
+}
+
+/* Poll Popover */
+.sidepeek-poll-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.sidepeek-poll-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--sp-border);
+  border-radius: 8px;
+  background: var(--sp-soft);
+  color: var(--sp-fg);
+  font-size: 13px;
+  outline: none;
+}
+
+.sidepeek-poll-input:focus {
+  border-color: var(--sp-accent);
+}
+
+.sidepeek-poll-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--sp-muted);
+}
+
+.sidepeek-poll-duration {
+  background: var(--sp-soft);
+  border: 1px solid var(--sp-border);
+  border-radius: 6px;
+  color: var(--sp-fg);
+  padding: 2px 6px;
+  font-size: 12px;
+  outline: none;
+}
+
+.sidepeek-poll-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidepeek-poll-btn-clear,
+.sidepeek-schedule-btn-clear {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--sp-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sidepeek-poll-btn-clear:hover,
+.sidepeek-schedule-btn-clear:hover {
+  background: var(--sp-soft);
+  color: var(--sp-fg);
+}
+
+.sidepeek-poll-btn-apply,
+.sidepeek-schedule-btn-apply {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--sp-accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sidepeek-poll-btn-apply:hover,
+.sidepeek-schedule-btn-apply:hover {
+  opacity: 0.9;
+}
+
+/* Schedule Popover */
+.sidepeek-schedule-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.sidepeek-schedule-label {
+  font-size: 12.5px;
+  color: var(--sp-muted);
+}
+
+.sidepeek-schedule-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--sp-border);
+  border-radius: 8px;
+  background: var(--sp-soft);
+  color: var(--sp-fg);
+  font-size: 13px;
+  outline: none;
+}
+
+.sidepeek-schedule-input:focus {
+  border-color: var(--sp-accent);
+}
+
+.sidepeek-schedule-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Composer Tags / Badges in preview area */
+.sidepeek-composer-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(29, 155, 240, 0.1);
+  color: var(--sp-accent);
+  border: 1px solid rgba(29, 155, 240, 0.25);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.sidepeek-tag-remove {
+  background: transparent;
+  border: 0;
+  color: var(--sp-accent);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.75;
+}
+
+.sidepeek-tag-remove:hover {
+  opacity: 1;
+}
+
+/* Optimistic Inserted Comment Animation */
+.sidepeek-just-posted {
+  animation: sidepeek-fade-in-down 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  background: rgba(29, 155, 240, 0.06);
+  border-radius: 12px;
+  transition: background 1.5s ease;
+}
+
+@keyframes sidepeek-fade-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==========================================================================
+   Repost & Quote Popover Menu
+   ========================================================================== */
+.sidepeek-repost-menu {
+  position: fixed;
+  z-index: 2147483645;
+  background: var(--sp-bg);
+  border: 1px solid var(--sp-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.12);
+  padding: 6px 0;
+  min-width: 150px;
+  overflow: hidden;
+  animation: sidepeek-menu-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes sidepeek-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.sidepeek-repost-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 16px;
+  background: transparent;
+  border: 0;
+  color: var(--sp-fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.sidepeek-repost-menu-item:hover {
+  background: var(--sp-soft);
+}
+
+.sidepeek-repost-menu-item .sidepeek-menu-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.sidepeek-repost-menu-item .sidepeek-menu-item-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: currentColor;
+}
+
+.sidepeek-menu-act-repost.active,
+.sidepeek-menu-act-repost:hover {
+  color: var(--sp-repost);
+}
+
+.sidepeek-menu-act-quote:hover {
+  color: var(--sp-accent);
+}
+
+/* ==========================================================================
+   User Profile Hover Card (Avatar Hover Popover)
+   ========================================================================== */
+.sidepeek-user-hovercard {
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  position: fixed;
+  z-index: 2147483646;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  background: var(--sp-bg);
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 0 15px rgba(101, 119, 134, 0.2), 0 0 3px 1px rgba(101, 119, 134, 0.15);
+  color: var(--sp-fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  overflow: hidden;
+  opacity: 0;
+  overflow-y: auto;
+  transform: scale(0.96) translateY(4px);
+  transition: opacity 0.16s cubic-bezier(0.16, 1, 0.3, 1), transform 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.sidepeek-user-hovercard.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+
+.sidepeek-hovercard-banner {
+  width: 100%;
+  height: 64px;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--sp-soft);
+}
+
+.sidepeek-hovercard-banner img { width: 100%; height: 100%; object-fit: cover; }
+.sidepeek-hovercard-meta, .sidepeek-profile-status, .sidepeek-profile-retry {
+  display: block;
+  color: var(--sp-muted);
+  font-size: 13px;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+.sidepeek-profile-retry { border: 0; background: none; color: var(--sp-accent); cursor: pointer; }
+.sidepeek-hovercard-follow-btn:disabled, .sidepeek-action-btn:disabled { opacity: .55; cursor: wait; }
+a.sidepeek-handle, a.sidepeek-action-btn { text-decoration: none; }
+a.sidepeek-handle:hover { text-decoration: underline; }
+
+.sidepeek-hovercard-content {
+  padding: 16px;
+}
+
+.sidepeek-hovercard-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.sidepeek-hovercard-avatar-wrap {
+  display: block;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 0;
+  background: var(--sp-soft);
+  margin-top: 0;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.sidepeek-hovercard-avatar-wrap:hover {
+  opacity: 0.9;
+}
+
+.sidepeek-hovercard-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sidepeek-user-hovercard:not(.has-banner) .sidepeek-hovercard-avatar-wrap {
+  margin-top: 0;
+}
+
+.sidepeek-hovercard-follow-btn {
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 6px 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
+  min-height: 36px;
+  line-height: 1.25;
+  outline: none;
+  font-family: inherit;
+}
+
+.sidepeek-hovercard-follow-btn:not(.following) {
+  background: var(--sp-fg);
+  color: var(--sp-bg);
+}
+
+.sidepeek-hovercard-follow-btn:not(.following):hover {
+  opacity: 0.88;
+}
+
+.sidepeek-hovercard-follow-btn .sidepeek-unfollow-text {
+  display: none !important;
+}
+
+.sidepeek-hovercard-follow-btn.following {
+  background: transparent;
+  border-color: var(--sp-border);
+  color: var(--sp-fg);
+}
+
+.sidepeek-hovercard-follow-btn.following:hover {
+  border-color: rgba(244, 33, 46, 0.4);
+  color: #f4212e;
+  background: rgba(244, 33, 46, 0.1);
+}
+
+.sidepeek-hovercard-follow-btn.following:hover .sidepeek-follow-text {
+  display: none !important;
+}
+
+.sidepeek-hovercard-follow-btn.following:hover .sidepeek-unfollow-text {
+  display: inline !important;
+}
+
+.sidepeek-hovercard-names {
+  margin-bottom: 8px;
+}
+
+.sidepeek-hovercard-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--sp-fg);
+  text-decoration: none;
+  line-height: 1.3;
+}
+
+.sidepeek-hovercard-name:hover {
+  text-decoration: underline;
+}
+
+.sidepeek-hovercard-name .sidepeek-verified-badge {
+  margin-left: 2px;
+}
+
+.sidepeek-hovercard-handle-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.sidepeek-hovercard-handle {
+  font-size: 15px;
+  color: var(--sp-muted);
+  text-decoration: none;
+}
+
+.sidepeek-hovercard-pill {
+  background: var(--sp-soft);
+  color: var(--sp-muted);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.sidepeek-hovercard-bio {
+  font-size: 15px;
+  line-height: 20px;
+  white-space: pre-wrap;
+  color: var(--sp-fg);
+  margin-bottom: 12px;
+  word-break: break-word;
+}
+
+.sidepeek-bio-link {
+  color: var(--sp-accent);
+  text-decoration: none;
+}
+
+.sidepeek-bio-link:hover {
+  text-decoration: underline;
+}
+
+.sidepeek-hovercard-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--sp-muted);
+}
+
+.sidepeek-hovercard-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sidepeek-hovercard-stat:hover {
+  text-decoration: underline;
+}
+
+.sidepeek-hovercard-count {
+  font-weight: 700;
+  color: var(--sp-fg);
+}
+
+.sidepeek-hovercard-label {
+  color: var(--sp-muted);
+}
+
+.sidepeek-hovercard-mutual {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  color: var(--sp-muted);
+  font-size: 13px;
+  line-height: 16px;
+  text-decoration: none;
+}
+.sidepeek-mutual-avatars { display: flex; padding-left: 8px; flex-shrink: 0; }
+.sidepeek-mutual-avatars img { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--sp-bg); margin-left: -8px; }
+.sidepeek-hovercard-full-profile {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 34px;
+  margin-top: 16px;
+  border: 1px solid var(--sp-border);
+  border-radius: 9999px;
+  color: var(--sp-fg);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 700;
+}
+.sidepeek-hovercard-full-profile:hover { background: var(--sp-soft); }
+
+/* Keep the real X component in its React tree; top-layer placement escapes
+   nested X stacking contexts without moving or cloning the component. */
+[data-sidex-native-hover][popover] {
+  position: fixed !important;
+  inset: auto !important;
+  left: var(--sidex-hover-left, 12px) !important;
+  top: var(--sidex-hover-top, 12px) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  overflow: visible !important;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+}
+[data-sidex-native-hover][popover]::backdrop { background: transparent; pointer-events: none; }
+
+/* ==========================================================================
+   1. Quoted Tweet Card (引用推文卡片)
+   ========================================================================== */
+.sidepeek-quote-card {
+  margin-top: 10px;
+  border: 1px solid var(--sp-border);
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  background: var(--sp-bg);
+}
+
+.sidepeek-quote-card:hover {
+  background: var(--sp-soft);
+  border-color: var(--sp-muted);
+}
+
+.sidepeek-quote-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 12px 4px 12px;
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+
+.sidepeek-quote-avatar-link {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sidepeek-quote-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sidepeek-quote-name {
+  font-weight: 700;
+  color: var(--sp-fg);
+  text-decoration: none;
+}
+
+.sidepeek-quote-name:hover {
+  text-decoration: underline;
+}
+
+.sidepeek-quote-handle {
+  color: var(--sp-muted);
+  font-size: 13px;
+}
+
+.sidepeek-quote-time {
+  color: var(--sp-muted);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.sidepeek-quote-time:hover {
+  text-decoration: underline;
+}
+
+.sidepeek-quote-text {
+  padding: 0 12px 10px 12px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--sp-fg);
+  word-break: break-word;
+}
+
+.sidepeek-quote-card .sidepeek-media-grid {
+  border-radius: 0;
+  border-top: 1px solid var(--sp-border);
+}
+
+/* ==========================================================================
+   2. Author / OP Badge (楼主 / 作者标识)
+   ========================================================================== */
+.sidepeek-author-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(29, 155, 240, 0.12);
+  color: var(--sp-accent);
+  line-height: 1.25;
+  margin-left: 2px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* ==========================================================================
+   3. Link Card Preview (网页外链卡片)
+   ========================================================================== */
+.sidepeek-link-card {
+  display: block;
+  margin-top: 10px;
+  border: 1px solid var(--sp-border);
+  border-radius: 14px;
+  overflow: hidden;
+  text-decoration: none;
+  background: var(--sp-bg);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.sidepeek-link-card:hover {
+  background: var(--sp-soft);
+  border-color: var(--sp-muted);
+}
+
+.sidepeek-link-card-img-wrap {
+  width: 100%;
+  max-height: 200px;
+  overflow: hidden;
+  background: var(--sp-soft);
+}
+
+.sidepeek-link-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sidepeek-link-card-info {
+  padding: 10px 12px;
+}
+
+.sidepeek-link-card-domain {
+  font-size: 12px;
+  color: var(--sp-muted);
+  text-transform: lowercase;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidepeek-link-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--sp-fg);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sidepeek-link-card-desc {
+  font-size: 12.5px;
+  color: var(--sp-muted);
+  line-height: 1.35;
+  margin-top: 3px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   4. More Actions Menu (··· 更多操作菜单) & Share Menu
+   ========================================================================== */
+.sidepeek-author-row {
+  position: relative;
+}
+
+.sidepeek-more-col {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.sidepeek-act-more {
+  background: transparent;
+  border: 0;
+  color: var(--sp-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidepeek-act-more:hover {
+  background: rgba(29, 155, 240, 0.1);
+  color: var(--sp-accent);
+}
+
+.sidepeek-more-menu,
+.sidepeek-share-menu {
+  position: fixed;
+  z-index: 2147483645;
+  background: var(--sp-bg);
+  border: 1px solid var(--sp-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.12);
+  padding: 6px 0;
+  min-width: 175px;
+  overflow: hidden;
+  animation: sidepeek-menu-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidepeek-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: 0;
+  color: var(--sp-fg);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.sidepeek-menu-item:hover {
+  background: var(--sp-soft);
+}
+
+.sidepeek-menu-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.sidepeek-menu-item-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.sidepeek-menu-item.danger:hover {
+  color: #f4212e;
+}
+
+/* ==========================================================================
+   5. Translate Post (翻译推文)
+   ========================================================================== */
+.sidepeek-translate-btn {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--sp-accent);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: opacity 0.15s;
+}
+
+.sidepeek-translate-btn:hover {
+  text-decoration: underline;
+}
+
+.sidepeek-translate-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.sidepeek-translation-box {
+  margin-top: 6px;
+  padding: 8px 12px;
+  background: var(--sp-soft);
+  border-left: 3px solid var(--sp-accent);
+  border-radius: 4px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--sp-fg);
+}
+
+.sidepeek-translation-header {
+  font-size: 11.5px;
+  color: var(--sp-muted);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ==========================================================================
+   6. Native GIF Experience (GIF 原生播放)
+   ========================================================================== */
+.sidepeek-gif-media-box {
+  position: relative;
+  display: inline-block;
+  border-radius: 14px;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.sidepeek-gif-video {
+  width: 100%;
+  display: block;
+  border-radius: 14px;
+}
+
+.sidepeek-gif-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   7. Like Heart Burst Animation (点赞微动效)
+   ========================================================================== */
+@keyframes sidepeek-heart-burst {
+  0% { transform: scale(1); }
+  25% { transform: scale(0.7); }
+  50% { transform: scale(1.35); }
+  75% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+.sidepeek-act-like.sidepeek-like-anim svg {
+  animation: sidepeek-heart-burst 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* ==========================================================================
+   8. Long Post Clamp & Show More (长推文折叠展开)
+   ========================================================================== */
+.sidepeek-text.sidepeek-text-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sidepeek-show-more-btn {
+  background: transparent;
+  border: 0;
+  padding: 2px 0;
+  margin-top: 2px;
+  font-size: 13.5px;
+  color: var(--sp-accent);
+  cursor: pointer;
+  display: inline-block;
+}
+
+.sidepeek-show-more-btn:hover {
+  text-decoration: underline;
+}
+
+
+

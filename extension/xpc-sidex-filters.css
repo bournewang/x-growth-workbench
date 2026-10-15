@@ -1,0 +1,101 @@
+/* Filter controls added to the in-page comment drawer. */
+#sidepeek-drawer-root .xpc-sidepeek-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--sp-border);
+  background: var(--sp-bg);
+  flex-shrink: 0;
+}
+#sidepeek-drawer-root .xpc-sidepeek-filters button {
+  border: 1px solid var(--sp-border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: var(--sp-soft);
+  color: var(--sp-fg);
+  font: 600 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+#sidepeek-drawer-root .xpc-sidepeek-filters button[aria-pressed="true"] {
+  border-color: var(--sp-accent);
+  background: var(--sp-accent);
+  color: #fff;
+}
+#sidepeek-drawer-root .xpc-sidepeek-filters button:focus-visible {
+  outline: 2px solid var(--sp-accent);
+  outline-offset: 2px;
+}
+#sidepeek-drawer-root .xpc-filter-count {
+  margin-left: auto;
+  color: var(--sp-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+#sidepeek-drawer-root .xpc-follow-today {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--sp-border);
+  background: var(--sp-bg);
+  color: var(--sp-muted);
+  font: 600 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+#sidepeek-drawer-root .xpc-follow-today[data-level="near"] {
+  color: #9b5a00;
+  background: #fff1d7;
+}
+#sidepeek-drawer-root .xpc-follow-today[data-level="limit"] {
+  color: #b42318;
+  background: #fff0ee;
+}
+#sidepeek-drawer-root .xpc-follow-today[data-level="error"] {
+  color: #b42318;
+  background: #fff0ee;
+}
+
+/* X's wide blue notification, kept visible until retry or close. */
+#xpc-rate-limit-toast {
+  position: fixed;
+  z-index: 2147483645;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  min-height: 44px;
+  padding: 12px 24px;
+  border-radius: 5px;
+  background: #4a99e9;
+  color: #fff;
+  font: 700 15px/20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+@media (max-width: 490px) {
+  #xpc-rate-limit-toast { white-space: normal; }
+}
+#sidepeek-drawer-root .xpc-rate-limit-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px;
+}
+#sidepeek-drawer-root .xpc-rate-limit-retry {
+  min-height: 36px;
+  padding: 0 22px;
+  border: 1px solid var(--sp-border);
+  border-radius: 9999px;
+  background: var(--sp-fg);
+  color: var(--sp-bg);
+  font: 700 14px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+#sidepeek-drawer-root .xpc-rate-limit-retry:hover { opacity: .88; }
+#sidepeek-drawer-root .xpc-rate-limit-retry:focus-visible {
+  outline: 2px solid #1d9bf0;
+  outline-offset: 3px;
+}

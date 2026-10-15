@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>X涨粉工作台</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="topbar">
+    <img class="brand-mark" src="icons/icon-48.png" alt="">
+    <div><strong class="brand-name">X涨粉工作台</strong><span class="brand-subtitle">评论筛选 · 发布与关注记录</span></div>
+  </header>
+  <main id="workbench-main" class="license-locked">
+    <section id="license-panel" class="license-panel" aria-labelledby="license-title">
+      <h1 id="license-title">激活 X涨粉工作台</h1>
+      <p>购买后输入激活码即可使用；无需在插件里填写邮箱。</p>
+      <form id="license-form"><label for="license-code">激活码</label><input id="license-code" type="text" autocomplete="off" spellcheck="false" placeholder="XGW-XXXX-XXXX-XXXX-XXXX-XXXX" required><button type="submit">激活</button></form>
+      <p id="license-feedback" role="status">正在检查激活状态…</p>
+    </section>
+    <div class="account-row"><label for="account">统计账号</label><select id="account"><option value="">尚无记录</option></select></div>
+    <div class="metric-grid">
+      <section class="metric-card" aria-labelledby="period-title">
+        <div class="metric-head"><h1 id="period-title">今日发布</h1><select id="period" aria-label="发布统计时间"><option value="1">今天</option><option value="3">近 3 天</option><option value="7">近 7 天</option></select></div>
+        <div id="total" class="metric-value" aria-live="polite">0</div>
+        <p id="sources" class="metric-source">自动 0 + 补记 0</p>
+      </section>
+      <section id="follow-panel" class="metric-card follow-card" aria-labelledby="follow-title">
+        <div class="metric-head"><h2 id="follow-title">今日关注</h2><span class="metric-period">今天</span></div>
+        <div class="follow-count"><strong id="follow-total" class="metric-value" aria-live="polite">0</strong><span>/ 400</span></div>
+        <progress id="follow-progress" max="400" value="0" aria-label="今日关注记录与 400 的比例"></progress>
+        <p id="follow-sources" class="metric-source">自动 0 + 补记 0</p>
+      </section>
+    </div>
+    <div class="breakdown" aria-label="发布分类"><div><strong id="original">0</strong><span>原创 / 引用</span></div><div><strong id="reply">0</strong><span>评论</span></div><div><strong id="repost">0</strong><span>转发</span></div></div>
+    <p id="follow-pending" class="detail-note" hidden></p>
+    <p id="follow-advice" class="detail-note" role="status"></p>
+    <div class="edit-panels">
+      <details id="manual-panel"><summary>补记发布</summary>
+        <form id="manual-form"><p id="manual-context"></p><fieldset id="manual-fields"><div class="manual-grid">
+          <label>原创 / 引用<input id="manual-original" type="number" min="0" max="100000" step="1" value="0" required></label>
+          <label>评论<input id="manual-reply" type="number" min="0" max="100000" step="1" value="0" required></label>
+          <label>转发<input id="manual-repost" type="number" min="0" max="100000" step="1" value="0" required></label>
+        </div><button type="submit">保存补记</button></fieldset><p id="manual-feedback" role="status"></p></form>
+      </details>
+      <details id="follow-manual-panel"><summary>补记关注</summary>
+        <form id="follow-manual-form"><label for="follow-manual">今天尚未计入的关注次数</label><div class="follow-manual-row"><input id="follow-manual" type="number" min="0" max="100000" step="1" value="0" required><button type="submit">保存</button></div><p id="follow-manual-feedback" role="status"></p></form>
+      </details>
+    </div>
+    <p id="status" role="status">正在读取记录…</p>
+    <p id="warning" role="alert" hidden></p>
+    <p id="license-expiry" class="detail-note" hidden></p>
+    <p class="footnote">仅记录本浏览器中的操作；工具栏数字显示发布数。</p>
+  </main>
+  <script src="core.js"></script><script src="popup.js"></script>
+</body>
+</html>

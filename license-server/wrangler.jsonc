@@ -1,0 +1,12 @@
+{
+  "name": "x-growth-license",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-03-17",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "x-growth-license",
+      "database_id": "db8f6d33-c994-4e45-82f6-c828418420f5"
+    }
+  ]
+}
