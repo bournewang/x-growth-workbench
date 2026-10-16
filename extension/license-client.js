@@ -39,6 +39,39 @@
     } finally { clearTimeout(timer); }
   }
 
+  async function installIdentity() {
+    const id = await installationId();
+    const { xpcInstallToken: saved } = await chrome.storage.local.get('xpcInstallToken');
+    if (saved) return { installationId: id, installToken: saved };
+    const token = [...crypto.getRandomValues(new Uint8Array(32))].map(v => v.toString(16).padStart(2, '0')).join('');
+    await chrome.storage.local.set({ xpcInstallToken: token });
+    return { installationId: id, installToken: token };
+  }
+  async function register(startTrial = false) {
+    const identity = await installIdentity();
+    const { xpcTrial: trial } = await chrome.storage.local.get('xpcTrial');
+    return callServer('/v1/install/register', { ...identity, version: chrome.runtime.getManifest().version,
+      reportingRequired: config.reportingRequired === true, startTrial, ...(startTrial && Number.isFinite(trial?.expiresAt) ? { previousTrialExpiresAt: trial.expiresAt } : {}) });
+  }
+  async function serverTrial(startTrial, force) {
+    const now = Date.now();
+    const { xpcTrial: saved } = await chrome.storage.local.get('xpcTrial');
+    if (!saved && !startTrial) return { active: false, reason: 'trial_not_started' };
+    const withinTrial = saved?.serverCheckedAt && now >= saved.serverCheckedAt && now < saved.expiresAt;
+    const validCache = withinTrial && now - saved.serverCheckedAt < refreshAfter;
+    if (!force && validCache) return { active: true, mode: 'trial', expiresAt: saved.expiresAt };
+    try {
+      const response = await register(startTrial || !!saved);
+      if (!Number.isFinite(response.expiresAt)) return { active: false, reason: 'trial_not_started' };
+      await chrome.storage.local.set({ xpcTrial: { startedAt: response.expiresAt - 3 * refreshAfter, expiresAt: response.expiresAt, lastSeenAt: now, serverCheckedAt: now } });
+      return { active: response.active === true && now < response.expiresAt, mode: 'trial', expiresAt: response.expiresAt,
+        reason: response.active ? undefined : 'trial_expired' };
+    } catch (error) {
+      if (![400,403].includes(error.status) && withinTrial) return { active: true, mode: 'trial', expiresAt: saved.expiresAt };
+      return { active: false, reason: saved?.expiresAt <= now ? 'trial_expired' : 'server_unavailable' };
+    }
+  }
+
   async function trialStatus(startTrial) {
     const now = Date.now();
     const { xpcTrial: saved } = await chrome.storage.local.get('xpcTrial');
@@ -60,7 +93,7 @@
     if (!config.required) return { active: true, mode: 'development' };
     if (!config.apiBaseUrl) return { active: false, reason: 'not_configured' };
     const { xpcLicense: saved } = await chrome.storage.local.get('xpcLicense');
-    if (!saved?.code) return trialStatus(startTrial);
+    if (!saved?.code) return config.serverTrial ? serverTrial(startTrial, force) : trialStatus(startTrial);
     const now = Date.now();
     const age = now - (saved.checkedAt || 0);
     const expiredLocally = Number.isFinite(saved.expiresAt) && now >= saved.expiresAt;
@@ -99,5 +132,11 @@
     }
   }
 
-  root.XPCLicenseClient = { status: (force, startTrial) => serial(() => status(force, startTrial)), activate: code => serial(() => activate(code)) };
+  root.XPCLicenseClient = { status: (force, startTrial) => serial(() => status(force, startTrial)), activate: code => serial(() => activate(code)),
+    identity: () => serial(installIdentity),
+    register: async () => {
+      const identity = await serial(installIdentity);
+      return callServer('/v1/install/register', { ...identity, version: chrome.runtime.getManifest().version, reportingRequired: config.reportingRequired === true, startTrial: false });
+    },
+    report: async (path, body) => callServer(path, { ...body, ...await serial(installIdentity) }) };
 })(globalThis);

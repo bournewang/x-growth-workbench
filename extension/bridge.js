@@ -31,6 +31,7 @@
   });
   if (window === window.top) {
     chrome.runtime.sendMessage({ type: 'license:status', startTrial: true }).catch(() => {});
+    setInterval(() => { if (document.visibilityState === 'visible') chrome.runtime.sendMessage({ type: 'license:heartbeat' }).catch(() => {}); }, 300000);
   }
   ready();
 })();

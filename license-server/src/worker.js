@@ -1,3 +1,4 @@
+import { publicOperations, installationRoute, dashboardRoute, authentication, sessionAuthorized, audit, result } from './operations.js';
 const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const codePattern = /^XGW-(?:[A-HJ-NP-Z2-9]{4}-){4}[A-HJ-NP-Z2-9]{4}$/;
 const installationPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -84,8 +85,8 @@ async function issue(env, body) {
   const hash = await codeHash(code);
   const licenseId = crypto.randomUUID();
   const expiresAt = expiry.value;
-  await env.DB.prepare('INSERT INTO licenses (code_hash, license_id, buyer_email, order_ref, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(hash, licenseId, buyerEmail, orderRef, now, expiresAt).run();
+  await env.DB.batch([env.DB.prepare('INSERT INTO licenses (code_hash, license_id, buyer_email, order_ref, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(hash, licenseId, buyerEmail, orderRef, now, expiresAt), audit(env, 'issue', licenseId)]);
   return json({ licenseId, code, buyerEmail, expiresAt }, 201, false);
 }
 
@@ -113,10 +114,10 @@ async function adminChange(env, body, action) {
     const code = generateCode();
     const hash = await codeHash(code);
     const expiresAt = expiry.value;
-    await env.DB.prepare(`UPDATE licenses SET code_hash = ?, status = 'active',
+    await env.DB.batch([env.DB.prepare(`UPDATE licenses SET code_hash = ?, status = 'active',
       installation_id = NULL, activated_at = NULL, checked_at = NULL,
       expires_at = ? WHERE license_id = ?`)
-      .bind(hash, expiresAt, licenseId).run();
+      .bind(hash, expiresAt, licenseId), audit(env, action, licenseId)]);
     return json({ ok: true, licenseId, code, expiresAt }, 200, false);
   }
   if (action === 'renew') {
@@ -126,15 +127,15 @@ async function adminChange(env, body, action) {
     }
     const expiry = expiration(body, now, undefined, Math.max(now, row.expires_at || 0));
     if (!expiry.valid) return json({ error: 'invalid_input' }, 400, false);
-    await env.DB.prepare('UPDATE licenses SET expires_at = ? WHERE license_id = ? AND buyer_email = ?')
-      .bind(expiry.value, licenseId, buyerEmail).run();
+    await env.DB.batch([env.DB.prepare('UPDATE licenses SET expires_at = ? WHERE license_id = ? AND buyer_email = ?')
+      .bind(expiry.value, licenseId, buyerEmail), audit(env, action, licenseId)]);
     return json({ ok: true, licenseId, expiresAt: expiry.value }, 200, false);
   }
   const sql = action === 'revoke'
     ? `UPDATE licenses SET status = 'revoked' WHERE license_id = ?`
     : `UPDATE licenses SET status = 'active', installation_id = NULL,
       activated_at = NULL, checked_at = NULL WHERE license_id = ?`;
-  await env.DB.prepare(sql).bind(licenseId).run();
+  await env.DB.batch([env.DB.prepare(sql).bind(licenseId), audit(env, action, licenseId)]);
   return json({ ok: true }, 200, false);
 }
 
@@ -160,6 +161,7 @@ async function activate(env, body, verifying) {
   if (row.expires_at !== null && row.expires_at <= now) return json({ ok: false, error: 'expired' }, 403);
   if (row.installation_id !== installationId) return json({ ok: false, error: 'bound_elsewhere' }, 409);
   if (verifying) await env.DB.prepare('UPDATE licenses SET checked_at = ? WHERE code_hash = ?').bind(now, hash).run();
+  else await env.DB.prepare('INSERT OR IGNORE INTO paid_activations(license_id,installation_id,first_activated_at) VALUES (?,?,?)').bind(row.license_id,installationId,now).run();
   return json({ ok: true, licenseId: row.license_id, checkedAt: now, expiresAt: row.expires_at });
 }
 
@@ -167,7 +169,20 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/health' && request.method === 'GET') return json({ ok: true });
-    const publicRoute = ['/v1/activate', '/v1/verify'].includes(url.pathname);
+    if ((url.pathname === '/admin' || url.pathname.startsWith('/admin/')) && ['GET','HEAD'].includes(request.method)) {
+      if (!env.ASSETS) return result({ error: 'admin_assets_missing' },503);
+      const asset = new URL(request.url);
+      asset.pathname = url.pathname === '/admin' || url.pathname === '/admin/' ? '/' : url.pathname.slice(6);
+      const response = await env.ASSETS.fetch(new Request(asset, request));
+      const headers = new Headers(response.headers);
+      headers.set('Cache-Control','no-store');
+      headers.set('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+      headers.set('X-Content-Type-Options','nosniff');
+      headers.set('X-Robots-Tag','noindex, nofollow');
+      headers.set('Referrer-Policy','no-referrer');
+      return new Response(response.body,{status:response.status,headers});
+    }
+    const publicRoute = ['/v1/activate', '/v1/verify', ...publicOperations].includes(url.pathname);
     if (publicRoute && request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: {
         'Access-Control-Allow-Origin': '*',
@@ -179,16 +194,25 @@ export default {
     if (request.method !== 'POST') return json({ error: 'not_found' }, 404, publicRoute);
     if (!publicRoute && !url.pathname.startsWith('/v1/admin/')) return json({ error: 'not_found' }, 404);
     if (!env.DB) return json({ error: 'server_not_configured' }, 503, publicRoute);
-    if (!publicRoute) {
-      const authorization = request.headers.get('Authorization') || '';
-      if (!sameSecret(authorization, `Bearer ${env.ADMIN_TOKEN || ''}`) || !env.ADMIN_TOKEN) {
-        return json({ error: 'unauthorized' }, 401, false);
-      }
-    }
     let body;
     try { body = await readBody(request); }
     catch { return json({ error: 'invalid_body' }, 400, publicRoute); }
     try {
+      if (['/v1/admin/login','/v1/admin/logout'].includes(url.pathname)) return await authentication(request,env,body,url.pathname);
+      if (!publicRoute) {
+        const bearer = sameSecret(request.headers.get('Authorization') || '', `Bearer ${env.ADMIN_TOKEN || ''}`) && !!env.ADMIN_TOKEN;
+        if (!bearer) {
+          if (request.headers.get('Origin') !== url.origin || request.headers.get('X-Admin-Request') !== '1' || !(await sessionAuthorized(request,env))) return json({error:'unauthorized'},401,false);
+        }
+        const response = await dashboardRoute(env, body, url.pathname);
+        if (response) return response;
+      }
+      if (publicOperations.includes(url.pathname)) {
+        const response = await installationRoute(env,body,url.pathname);
+        const headers = new Headers(response.headers);
+        headers.set('Access-Control-Allow-Origin','*');
+        return new Response(response.body,{status:response.status,headers});
+      }
       if (url.pathname === '/v1/activate') return await activate(env, body, false);
       if (url.pathname === '/v1/verify') return await activate(env, body, true);
       if (url.pathname === '/v1/admin/issue') return await issue(env, body);

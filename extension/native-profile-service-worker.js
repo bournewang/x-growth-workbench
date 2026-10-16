@@ -1,7 +1,15 @@
 importScripts('sidex-background.js');
 // Publication counter remains independent of the in-page comment reader.
 importScripts('core.js');
-importScripts('license-config.js', 'license-client.js');
+importScripts('license-config.js', 'license-client.js', 'telemetry.js');
+let lastPageActivity = 0;
+function trackActivity() {
+  lastPageActivity = Date.now();
+  // Keep the earliest pending report; continuous activity must not postpone it.
+  chrome.alarms.get('telemetry-flush').then(alarm => {
+    if (!alarm) return chrome.alarms.create('telemetry-flush', { when: Date.now() + 60000 });
+  }).catch(() => {});
+}
 const core = XPCore;
 // All read/modify/write operations are serialized across tabs and popup requests.
 let queue = Promise.resolve();
@@ -40,6 +48,16 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   const page = sender.id === chrome.runtime.id && sender.tab && core.supportedPage(sender.url || '');
   const popup = sender.id === chrome.runtime.id && sender.url === chrome.runtime.getURL('popup.html');
   if (!page && !popup) return;
+  if (message.type === 'license:heartbeat') {
+    if (!page || sender.frameId !== 0) return;
+    trackActivity();
+    XPCTelemetry.flush().then(() => reply({ ok: true }), () => reply({ ok: true }));
+    return true;
+  }
+  if (page && sender.frameId === 0 && message.startTrial === true) {
+    trackActivity();
+    XPCTelemetry.flush().catch(() => {});
+  }
   if (message.type === 'license:status' || message.type === 'license:activate') {
     if (message.type === 'license:activate' && !popup) return;
     const task = message.type === 'license:status'
@@ -58,6 +76,8 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       return { ok: false, error: '试用或授权已结束，请输入有效激活码继续使用。' };
     }
     const s = await state();
+    if (page) trackActivity();
+    if (popup && message.type === 'follow-manual') trackActivity();
     let notice = null;
     if (page && message.type === 'publication') {
       core.add(s, message.event);
@@ -110,4 +130,7 @@ async function refresh() {
 }
 chrome.runtime.onInstalled.addListener(refresh);
 chrome.runtime.onStartup.addListener(refresh);
-chrome.alarms.onAlarm.addListener(() => serial(async () => badge(await state())));
+chrome.alarms.onAlarm.addListener(alarm => {
+  if (alarm.name === 'telemetry-flush' && Date.now() - lastPageActivity < 15 * 60000) XPCTelemetry.flush().catch(() => {});
+  serial(async () => badge(await state())).catch(() => {});
+});
