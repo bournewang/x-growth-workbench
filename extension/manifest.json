@@ -36,6 +36,7 @@
         "https://tweetdeck.twitter.com/*"
       ],
       "js": [
+        "runtime-client.js",
         "bridge.js"
       ],
       "all_frames": true,
@@ -64,6 +65,7 @@
         "https://twitter.com/*"
       ],
       "js": [
+        "nonfollowers.js",
         "sidex-page-bridge.js"
       ],
       "all_frames": false,
@@ -80,11 +82,13 @@
         "core.js",
         "sidex-core.js",
         "comment-filter.js",
+        "nonfollowers.js",
         "sidex-content.js"
       ],
       "css": [
         "sidex-sidebar.css",
-        "xpc-sidex-filters.css"
+        "xpc-sidex-filters.css",
+        "nonfollowers.css"
       ],
       "all_frames": false,
       "run_at": "document_idle"

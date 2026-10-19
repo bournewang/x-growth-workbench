@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const version = '0.9.1';
+const version = '0.9.9';
 const apiBaseUrl = process.argv[2]?.replace(/\/$/, '');
 if (!apiBaseUrl || !/^https:\/\/[^/]+$/.test(apiBaseUrl)) {
   console.error('用法: node scripts/build-paid-release.mjs https://你的激活服务域名');

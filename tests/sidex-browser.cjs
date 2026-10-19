@@ -306,6 +306,13 @@ main{width:600px;min-height:2200px;border:1px solid #ddd}main > article{padding:
     await page.waitForFunction(() => document.querySelector('.xpc-follow-today')?.dataset.level === 'error');
     assert.equal(followRequests, followsBeforeReload, 'stale tabs do not send an uncounted follow to X');
     assert.match(await page.locator('.xpc-follow-today').textContent(), /刷新 X 页面/);
+    const beforeStaleRead = detailRequests;
+    await page.locator('.post-text').evaluate(node => node.click());
+    await page.locator('#xpc-extension-refresh').waitFor();
+    assert.match(await page.locator('#xpc-extension-refresh').textContent(), /扩展已更新.*刷新 X/);
+    assert.equal(detailRequests, beforeStaleRead, 'stale page does not request comments');
+    assert.equal(await page.getByRole('button', {name:'刷新 X', exact:true}).count(),1);
+    assert.equal(new URL(page.url()).pathname,'/home','connection notice never reloads or navigates automatically');
     assert.deepEqual(errors, []);
     console.log('PASS: SideX original comments/hover/follow, filter toggles, state preservation.');
   } finally {

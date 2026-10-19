@@ -4,17 +4,21 @@
   if (window.top !== window.self) return;
   let access = { active: true };
   if (XPCLicenseConfig.required) {
-    const license = await chrome.runtime.sendMessage({ type: 'license:status', startTrial: true }).catch(() => null);
+    const license = await XPCRuntime.request({ type: 'license:status', startTrial: true }).catch(() => null);
     if (!license?.active) return;
     access = license;
   }
 
   function hasAccess() {
-    return access.active && (!Number.isFinite(access.expiresAt) || Date.now() < access.expiresAt);
+    return XPCRuntime.connected() && access.active && (!Number.isFinite(access.expiresAt) || Date.now() < access.expiresAt);
   }
   async function refreshAccess() {
+    XPCRuntime.ensureConnected();
     if (!XPCLicenseConfig.required) return true;
-    access = await chrome.runtime.sendMessage({ type: 'license:status' }).catch(() => ({ active: false }));
+    access = await XPCRuntime.request({ type: 'license:status' }).catch(error => {
+      if (XPCRuntime.isContextError(error)) throw error;
+      return { active: false };
+    });
     if (!access?.active) {
       access = { active: false };
       closeDrawer();
@@ -1675,14 +1679,10 @@
   function requestGoogleTranslation(text, destLang) {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("GOOGLE_TRANSLATION_TIMEOUT")), 35000);
-      try {
-        chrome.runtime.sendMessage({ type: "TRANSLATE_TEXT", text, destLang }, response => {
-          clearTimeout(timer);
-          const error = chrome.runtime.lastError;
-          if (error || !response?.ok) reject(new Error(response?.error || error?.message || "GOOGLE_TRANSLATION_FAILED"));
-          else resolve(response.payload);
-        });
-      } catch (error) { clearTimeout(timer); reject(error); }
+      XPCRuntime.request({ type: "TRANSLATE_TEXT", text, destLang }).then(response => {
+        if (!response?.ok) reject(new Error(response?.error || "GOOGLE_TRANSLATION_FAILED"));
+        else resolve(response.payload);
+      }, reject).finally(() => clearTimeout(timer));
     });
   }
 
@@ -3756,7 +3756,7 @@
         const target = /^\d{1,25}$/.test(String(author.id)) ? String(author.id) : `@${key}`;
         if (accountId) {
           try {
-            const recorded = await chrome.runtime.sendMessage({
+            const recorded = await XPCRuntime.request({
               type: 'follow', source: 'sidex', target, event: {
                 id: crypto.randomUUID(), accountId,
                 pending: result?.follow_request_sent === true && result?.following !== true,
@@ -4392,6 +4392,8 @@
       }
     }, true);
   }
+
+  globalThis.XPCNonfollowers?.init({ hasAccess, refreshAccess, requestPage, closeTweet: closeDrawer });
 
   // Initial check on load
   checkDetailPageAutoOpen();

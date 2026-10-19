@@ -81,6 +81,22 @@
     });
   }
 
+  const followingSnapshot = new Map();
+
+  // Observe only the signed-in user's own Following responses; no extra requests.
+  function publishFollowing(urlValue, body) {
+    try {
+      const url = new URL(urlValue, location.origin);
+      if (!/^(?:api\.)?(?:x|twitter)\.com$/.test(url.hostname) || !/\/graphql\/[^/]+\/Following$/.test(url.pathname)) return;
+      const ownerId = String(JSON.parse(url.searchParams.get("variables") || "{}").userId || "");
+      const viewerId = decodeURIComponent(document.cookie.match(/(?:^|;\s*)twid=([^;]+)/)?.[1] || "").replace(/^u=/, "");
+      if (!ownerId || ownerId !== viewerId || body?.errors?.length) return;
+      const users = globalThis.XPCNonfollowers.extractUsers(body);
+      for (const user of users) followingSnapshot.set(`${ownerId}:${user.id}`, { ownerId, user });
+      window.postMessage({ source: PAGE_SOURCE, type: "XPC_FOLLOWING_PAGE", ownerId, users }, location.origin);
+    } catch { /* An unknown response is not evidence of a non-mutual follow. */ }
+  }
+
   function patchXhr() {
     const originalOpen = XMLHttpRequest.prototype.open;
     const originalSend = XMLHttpRequest.prototype.send;
@@ -98,7 +114,13 @@
     };
     XMLHttpRequest.prototype.send = function sidePeekSend(body) {
       const request = requests.get(this);
-      if (request) rememberRequest(request.url, request.method, request.headers, body);
+      if (request) {
+        rememberRequest(request.url, request.method, request.headers, body);
+        this.addEventListener("load", () => {
+          if (this.status < 200 || this.status >= 300) return;
+          try { publishFollowing(request.url, this.responseType === "json" ? this.response : JSON.parse(this.responseText)); } catch {}
+        }, { once: true });
+      }
       return Reflect.apply(originalSend, this, [body ?? null]);
     };
   }
@@ -114,7 +136,12 @@
       } catch {
         // Safe fallback
       }
-      return Reflect.apply(originalFetch, this, [input, init]);
+      const result = Reflect.apply(originalFetch, this, [input, init]);
+      const url = input instanceof Request ? input.url : String(input);
+      if (/\/Following(?:\?|$)/.test(url)) result.then(response => {
+        if (response.ok) response.clone().json().then(body => publishFollowing(url, body)).catch(() => {});
+      }).catch(() => {});
+      return result;
     };
   }
 
@@ -663,6 +690,23 @@
       return;
     }
 
+    if (message.type === "READ_FOLLOWING_SNAPSHOT") {
+      const ownerId = decodeURIComponent(document.cookie.match(/(?:^|;\s*)twid=([^;]+)/)?.[1] || "").replace(/^u=/, "");
+      respond(message.requestId, true, { ownerId, users: [...followingSnapshot.values()].filter(item => item.ownerId === ownerId).map(item => item.user) });
+      return;
+    }
+
+    if (message.type === "FETCH_USER_POSTS") {
+      try {
+        if (!/^\d+$/.test(String(message.userId || ""))) throw new Error("无效用户");
+        const variables = { userId: String(message.userId), count: 20, includePromotedContent: false,
+          withQuickPromoteEligibilityTweetFields: true, withVoice: true, withV2Timeline: true };
+        if (typeof message.cursor === "string" && message.cursor) variables.cursor = message.cursor;
+        respond(message.requestId, true, await graphql("UserTweets", variables, "GET"));
+      } catch (error) { respond(message.requestId, false, error.message || "帖子加载失败"); }
+      return;
+    }
+
     if (message.type === "FETCH_MUTUAL_FOLLOWERS") {
       try { respond(message.requestId, true, await fetchMutualFollowers(message.userId)); }
       catch (error) { respond(message.requestId, false, error.message || "PROFILE_CONTEXT_UNAVAILABLE"); }
@@ -716,7 +760,13 @@
       let payload;
       if (message.type === "READ_THREAD") payload = await readThread(tweetId, message.cursor);
       else if (message.type === "TOGGLE_ACTION") payload = await toggleAction(message.action, tweetId, Boolean(message.active));
-      else if (message.type === "CREATE_REPLY") payload = await createReply(tweetId, message.text, message.mediaIds);
+      else if (message.type === "CREATE_REPLY") {
+        if (message.expectedAccountId != null) {
+          const viewerId = decodeURIComponent(document.cookie.match(/(?:^|;\s*)twid=([^;]+)/)?.[1] || "").replace(/^u=/, "");
+          if (viewerId !== message.expectedAccountId) throw new Error("登录账号已切换，请重新打开回复对话框。");
+        }
+        payload = await createReply(tweetId, message.text, message.mediaIds);
+      }
       else throw new Error("未知请求类型");
       respond(message.requestId, true, payload);
     } catch (error) {

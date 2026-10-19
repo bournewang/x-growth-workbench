@@ -10,13 +10,14 @@ test('same-page SideX reader is confined to normal X pages and does not weaken e
   assert.deepEqual(manifest.permissions, ['storage', 'alarms']);
   assert.equal(manifest.declarative_net_request, undefined);
   const scripts = manifest.content_scripts;
+  assert.deepEqual(scripts.find(entry => entry.js.includes('bridge.js')).js, ['runtime-client.js', 'bridge.js']);
   const sideXMain = scripts.find(entry => entry.js.includes('sidex-page-bridge.js'));
   const sideXUi = scripts.find(entry => entry.js.includes('sidex-content.js'));
   assert.deepEqual(sideXMain.matches, ['https://x.com/*', 'https://twitter.com/*']);
   assert.deepEqual(sideXUi.matches, sideXMain.matches);
   assert.equal(sideXMain.all_frames, false);
   assert.equal(sideXUi.all_frames, false);
-  assert.deepEqual(sideXUi.js, ['license-config.js', 'core.js', 'sidex-core.js', 'comment-filter.js', 'sidex-content.js']);
+  assert.deepEqual(sideXUi.js, ['license-config.js', 'core.js', 'sidex-core.js', 'comment-filter.js', 'nonfollowers.js', 'sidex-content.js']);
   for (const file of fs.readdirSync(dir).filter(name => name.endsWith('.js'))) {
     assert.doesNotMatch(fs.readFileSync(path.join(dir, file), 'utf8'), /declarativeNetRequest|modifyHeaders|responseHeaders/, file);
   }

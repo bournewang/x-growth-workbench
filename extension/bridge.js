@@ -24,14 +24,14 @@
     const p = e.data.payload;
     if (!p || !['publication', 'unrecognized', 'follow'].includes(p.type)) return;
     try {
-      chrome.runtime.sendMessage(p).then(response => {
+      XPCRuntime.request(p).then(response => {
         if (p.type === 'follow' && response?.notice) showFollowWarning(response.notice);
       }).catch(() => {});
     } catch { /* Extension was reloaded; refresh X. */ }
   });
   if (window === window.top) {
-    chrome.runtime.sendMessage({ type: 'license:status', startTrial: true }).catch(() => {});
-    setInterval(() => { if (document.visibilityState === 'visible') chrome.runtime.sendMessage({ type: 'license:heartbeat' }).catch(() => {}); }, 300000);
+    XPCRuntime.request({ type: 'license:status', startTrial: true }).catch(() => {});
+    setInterval(() => { if (document.visibilityState === 'visible') XPCRuntime.request({ type: 'license:heartbeat' }).catch(() => {}); }, 300000);
   }
   ready();
 })();
